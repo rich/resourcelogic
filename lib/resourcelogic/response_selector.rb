@@ -1,8 +1,6 @@
 module Resourcelogic
   class ResponseSelector
-    attr_accessor :context
-    attr_accessor :default_options
-    attr_accessor :context_options
+    attr_accessor :context, :default_options, :context_options
     
     def initialize(context, default_options, context_options)
       self.context = context
@@ -18,19 +16,19 @@ module Resourcelogic
     end
     
     def before
-      @before ||= self.context_options.before || self.default_options.before
+      self.context_options.before || self.default_options.before
     end
     
     def after
-      @after ||= self.context_options.after || self.default_options.after
+      self.context_options.after || self.default_options.after
     end
     
     def flash
-      @flash ||= self.context_options.flash || self.default_options.flash
+      self.context_options.flash || self.default_options.flash
     end
     
     def flash_now
-      @flash_now ||= self.context_options.flash_now || self.default_options.flash_now
+      self.context_options.flash_now || self.default_options.flash_now
     end
   end
 end
