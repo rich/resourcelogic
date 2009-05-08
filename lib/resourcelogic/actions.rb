@@ -7,7 +7,14 @@ module Resourcelogic
       klass.class_eval do
         extend Config
         ACTIONS.each do |action|
-          class_scoping_reader action, FAILABLE_ACTIONS.include?(action) ? FailableActionOptions.new : ActionOptions.new
+          write_inheritable_attribute(action, Hash.new {|h, k| h[k] = FAILABLE_ACTIONS.include?(action) ? FailableActionOptions.new : ActionOptions.new})
+
+          class_eval <<-"end_eval", __FILE__, __LINE__
+            def self.#{action}(ctx=:root, &block)
+              read_inheritable_attribute(:#{action})[ctx].instance_eval(&block) if block_given?
+              read_inheritable_attribute(:#{action})[ctx]
+            end
+          end_eval
         end
         add_acts_as_resource_module(Methods)
       end
@@ -131,7 +138,7 @@ module Resourcelogic
         # Calls the before block for the action, if one is present.
         #
         def before(action)
-          invoke_callbacks *self.class.send(action).before
+          invoke_callbacks *options_for(action).before
         end
   
         # Sets the flash and flash_now for the action, if it is present.
@@ -165,8 +172,11 @@ module Resourcelogic
           action = action == :new_action ? [action] : "#{action}".split('_').map(&:to_sym)
           options = self.class.send(action.first)
           options = options.send(action.last == :fails ? :fails : :success) if Resourcelogic::Actions::FAILABLE_ACTIONS.include? action.first
-  
-          options
+
+          context_options = self.class.send(action.first, self.send(:context))
+          context_options = context_options.send(action.last == :fails ? :fails : :success) if Resourcelogic::Actions::FAILABLE_ACTIONS.include? action.first
+          
+          Resourcelogic::ResponseSelector.new(self.send(:context), options, context_options)
         end
   
         def invoke_callbacks(*callbacks)
