@@ -30,7 +30,7 @@ module Resourcelogic
         #
         def object_url_parts(action = nil, *alternate_object_or_params)
           alternate_object, url_params = identify_object_or_params(alternate_object_or_params)
-          url_object = alternate_object || (param && object)
+          url_object = alternate_object || (param || object)
           object_parts = url_object ? [model_name.to_sym, url_object] : model_name.to_sym
           [action] + contexts_url_parts + [object_parts, url_params]
         end
@@ -95,7 +95,7 @@ module Resourcelogic
           return @object if defined?(@object)
           if param.nil? && respond_to?("current_#{object_name}", true)
             @object = send("current_#{object_name}")
-          else
+          elsif param.present?
             @object = end_of_association_chain.find(param)
           end
         end
