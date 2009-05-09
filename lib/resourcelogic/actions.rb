@@ -1,7 +1,7 @@
 module Resourcelogic
   module Actions
     ACTIONS           = [:index, :show, :new_action, :create, :edit, :update, :destroy].freeze
-    FAILABLE_ACTIONS  = ACTIONS - [:index, :new_action, :edit].freeze
+    FAILABLE_ACTIONS  = ACTIONS - [:index, :new_action, :edit, :destroy].freeze
     
     def self.included(klass)
       klass.class_eval do
@@ -35,21 +35,19 @@ module Resourcelogic
           actions_to_remove += [*config[:except]] if config[:except]
           actions_to_remove.uniq!
         end
-
+        
         actions_to_remove.each { |action| undef_method(action) if method_defined?(action) }
       end
     end
     
     module Methods
       def new
-        build_object
         load_object
         before :new_action
         response_for :new_action
       end
-    
+      
       def create
-        build_object
         load_object
         before :create
         if object.save
@@ -62,16 +60,16 @@ module Resourcelogic
           response_for :create_fails
         end
       end
-    
+      
       def edit
         load_object
         before :edit
         response_for :edit
       end
-
+      
       def update
         load_object
-        object.attributes = object_params
+        object.attributes = attributes
         before :update
         if object.save
           after :update
@@ -83,7 +81,7 @@ module Resourcelogic
           response_for :update_fails
         end
       end
-
+      
       def destroy
         load_object
         before :destroy
@@ -91,12 +89,8 @@ module Resourcelogic
         after :destroy
         set_flash :destroy
         response_for :destroy
-      rescue DestroyNotAllowed
-        after :destroy_fails
-        set_flash :destroy_fails
-        response_for :destroy_fails
       end
-    
+      
       def show
         load_object
         before :show
@@ -104,7 +98,7 @@ module Resourcelogic
       rescue ActiveRecord::RecordNotFound
         response_for :show_fails
       end
-    
+      
       def index
         load_collection
         before :index
@@ -128,26 +122,26 @@ module Resourcelogic
           rescue ActionController::DoubleRenderError
           end
         end
-
+        
         # Calls the after callbacks for the action, if one is present.
         #
         def after(action)
           invoke_callbacks *options_for(action).after
         end
-
+        
         # Calls the before block for the action, if one is present.
         #
         def before(action)
           invoke_callbacks *options_for(action).before
         end
-  
+        
         # Sets the flash and flash_now for the action, if it is present.
         #
         def set_flash(action)
           set_normal_flash(action)
           set_flash_now(action)
         end
-  
+        
         # Sets the regular flash (i.e. flash[:notice] = '...')
         #
         def set_normal_flash(action)
@@ -155,7 +149,7 @@ module Resourcelogic
             flash[:notice] = f.is_a?(Proc) ? instance_eval(&f) : options_for(action).flash
           end
         end
-  
+        
         # Sets the flash.now (i.e. flash.now[:notice] = '...')
         #
         def set_flash_now(action)
@@ -163,7 +157,7 @@ module Resourcelogic
             flash.now[:notice] = f.is_a?(Proc) ? instance_eval(&f) : options_for(action).flash_now
           end
         end
-  
+        
         # Returns the options for an action, which is a symbol.
         #
         # Manages splitting things like :create_fails.
@@ -178,11 +172,11 @@ module Resourcelogic
           
           Resourcelogic::ResponseSelector.new(self.send(:context), options, context_options)
         end
-  
+        
         def invoke_callbacks(*callbacks)
           unless callbacks.empty?
             callbacks.select { |callback| callback.is_a? Symbol }.each { |symbol| send(symbol) }
-    
+            
             block = callbacks.detect { |callback| callback.is_a? Proc }
             instance_eval &block unless block.nil?
           end
@@ -192,20 +186,13 @@ module Resourcelogic
           instance_variable_set "@#{parent_model_name}", parent_object if parent?
         end
         
-        def build_object
-          return @object if @object
-          @object = end_of_association_chain.send parent? ? :build : :new
-          @object.attributes = object_params
-          @object
-        end
-    
         # Used internally to load the member object in to an instance variable @#{model_name} (i.e. @post)
         #
         def load_object
           load_parent
           instance_variable_set "@#{object_name}", object
         end
-    
+        
         # Used internally to load the collection in to an instance variable @#{model_name.pluralize} (i.e. @posts)
         #
         def load_collection

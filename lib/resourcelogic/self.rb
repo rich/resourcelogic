@@ -10,11 +10,11 @@ module Resourcelogic
     
     module Config
       def model_name(value = nil)
-        config(:model_name, value, controller_name.singularize.underscore)
+        rw_config(:model_name, value, controller_name.singularize.underscore.to_sym)
       end
       
       def object_name(value = nil)
-        config(:object_name, value, controller_name.singularize.underscore)
+        rw_config(:object_name, value, controller_name.singularize.underscore.to_sym)
       end
     end
     
@@ -30,8 +30,9 @@ module Resourcelogic
         #
         def object_url_parts(action = nil, *alternate_object_or_params)
           alternate_object, url_params = identify_object_or_params(alternate_object_or_params)
-          url_object = alternate_object || (param || object)
-          object_parts = url_object ? [model_name.to_sym, url_object] : model_name.to_sym
+          url_object = alternate_object
+          url_object = object if url_object.nil? && object && !object.new_record?
+          object_parts = url_object ? [model_name, url_object] : model_name
           [action] + contexts_url_parts + [object_parts, url_params]
         end
         
@@ -58,32 +59,39 @@ module Resourcelogic
       private
         # Convenience method for the class level model_name method
         def model_name
-          self.class.model_name
+          @model_name ||= self.class.model_name.to_sym
+        end
+        
+        def model
+          @model ||= model_name.to_s.camelize.constantize
         end
         
         # Convenience method for the class level object_name method
         def object_name
-          self.class.object_name
-        end
-        
-        # The current model for the resource.
-        def model # :doc:
-          model_name.to_s.camelize.constantize
+          @object_name ||= self.class.object_name.to_sym
         end
         
         # The collection for the resource.
         def collection # :doc:
-          end_of_association_chain.all
+          @collection ||= scope.all
         end
 
         # The current paremter than contains the object identifier.
-        def param # :doc:
-          params[:id]
+        def id # :doc:
+         params[:id]
+        end
+        
+        def id?
+          params.key?(:id)
         end
         
         # The parameter hash that contains the object attributes.
-        def object_params
-          params["#{object_name}"]
+        def attributes
+          params[object_name]
+        end
+        
+        def attributes?
+          params.key?(object_name)
         end
         
         # The current member being used. If no param is present, it will look for
@@ -92,17 +100,17 @@ module Resourcelogic
         # look for a current_user method. If this is not the behavioru you want, simply
         # overwrite this method.
         def object # :doc:
-          return @object if defined?(@object)
-          if param.nil? && respond_to?("current_#{object_name}", true)
-            @object = send("current_#{object_name}")
-          elsif param.present?
-            @object = end_of_association_chain.find(param)
-          end
+          @object ||= id? ? find_object : build_object
         end
         
-        # The singleton module will override this when included.
-        def singleton?
-          false
+        def build_object
+          obj = scope.respond_to?(:build) ? scope.build : scope.new
+          obj.attributes = attributes
+          obj
+        end
+        
+        def find_object
+          scope.find(id)
         end
     end
   end

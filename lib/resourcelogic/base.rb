@@ -68,7 +68,7 @@ module Resourcelogic # :nodoc:
       end
       
       def resourceful(value = nil)
-        config(:resourceful, value, false)
+        rw_config(:resourceful, value, false)
       end
       
       def resourceful?
@@ -77,8 +77,9 @@ module Resourcelogic # :nodoc:
       
       def route_alias(alias_name, model_name)
         current_aliases = route_aliases
-        current_aliases[model_name.to_sym] ||= []
-        current_aliases[model_name.to_sym] << alias_name.to_sym
+        model_name = model_name.to_sym
+        current_aliases[model_name] ||= []
+        current_aliases[model_name] << alias_name.to_sym
         write_inheritable_attribute(:route_aliases, current_aliases)
       end
       
@@ -92,7 +93,7 @@ module Resourcelogic # :nodoc:
           inheritable_attributes.include?(key) ? read_inheritable_attribute(key) : []
         end
         
-        def config(key, value, default_value = nil, read_value = nil)
+        def rw_config(key, value, default_value = nil, read_value = nil)
           if value == read_value
             inheritable_attributes.include?(key) ? read_inheritable_attribute(key) : default_value
           else
@@ -132,11 +133,14 @@ if defined?(::ActionController)
       include Resourcelogic::Actions
       include Resourcelogic::Child
       include Resourcelogic::Context
-      include Resourcelogic::Parent
+      include Resourcelogic::Scope
       include Resourcelogic::Self
       include Resourcelogic::Sibling
-      include Resourcelogic::Singleton
       include Resourcelogic::Urligence
+      
+      # Need to be loaded last to override methods
+      include Resourcelogic::Parent
+      include Resourcelogic::Singleton
     end
   end
 end
