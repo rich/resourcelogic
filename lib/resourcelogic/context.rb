@@ -11,7 +11,7 @@ module Resourcelogic
     
     module Config
       def contextual_views(value = nil)
-        config(:contextual_views, value)
+        rw_config(:contextual_views, value)
       end
 
       def contextual_views?
@@ -35,7 +35,7 @@ module Resourcelogic
           path_parts.shift
           @contexts = []
           path_parts.each_with_index do |part, index|
-            break if model_name_from_path_part(part.split(".").first) == model_name.to_sym
+            break if model_name_from_path_part(part.split(".").first) == model_name
             @contexts << (part.to_i > 0 ? @contexts.pop.to_s.singularize.to_sym : part.underscore.to_sym)
           end
           @contexts
@@ -47,7 +47,7 @@ module Resourcelogic
           path_parts.shift
           @contexts_url_parts = []
           path_parts.each_with_index do |part, index|
-            break if model_name_from_path_part(part.split(".").first) == model_name.to_sym
+            break if model_name_from_path_part(part.split(".").first) == model_name
             if part.to_i > 0
               @contexts_url_parts << [model_name_from_path_part(@contexts_url_parts.pop), part.to_i]
             else
